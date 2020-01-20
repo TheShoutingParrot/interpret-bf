@@ -1,5 +1,5 @@
 OBJ = main.o util.o
-CC = tcc
+CC = gcc
 CFLAGS = -std=c99 -pedantic -Wall -Wextra
 H_FILES = interpret-bf.h
 PREFIX = /usr/local
