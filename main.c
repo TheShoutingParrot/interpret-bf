@@ -1,12 +1,13 @@
 #include "interpret-bf.h"
 
 int main(int argv, char *argc[]) {
+	cell_n = 0;
+	pc = 0;
+
 	if(argv < 2)
 		die(USAGE_MSG, stderr);
 
 	// TODO: add more arguments
-
-	pc = 0;
 
 	cell = (CELL_TYPE *)calloc(N_OF_CELLS, sizeof(CELL_TYPE));
 	if(cell == (CELL_TYPE *)NULL)
@@ -42,6 +43,7 @@ void remove_extra_chars(FILE *fp) { // TODO: rename this function
 	char ch;
 	uint32_t i;
 
+	line_n = 1;
 	i = 0;
 
 	while((ch = fgetc(fp)) != EOF)
@@ -54,15 +56,13 @@ void remove_extra_chars(FILE *fp) { // TODO: rename this function
 			case ',':
 			case '[':
 			case ']':
+			case '\n':
 				i++;
 			default:
 				break;
 		}
-
-	if(i < 1)
-		die("File \"%s\" contains no bf commands", fname);
 	
-	program = (char *)calloc(i, sizeof(CELL_TYPE));
+	program = (char *)malloc(i * sizeof(CELL_TYPE));
 	if(program == NULL)
 		die("Memory allocation failed:");
 	i = 0;
@@ -79,6 +79,7 @@ void remove_extra_chars(FILE *fp) { // TODO: rename this function
 			case ',':
 			case '[':
 			case ']':
+			case '\n':
 				*(program+i++) = ch;
 			default:
 				break;
@@ -90,22 +91,26 @@ void interpret_command(void) {
 
 	switch(*(program+pc)) {
 		case '>':
-			++cell;
+			if(cell_n >= N_OF_CELLS)
+				die(DEFAULT_ERROR_MSG, line_n, CELL_NOT_ACCESSIBLE_MSG);
+			++cell_n;
 			break;
 		case '<':
-			--cell;
+			if(cell_n <= 0)
+				die(DEFAULT_ERROR_MSG, line_n, CELL_NOT_ACCESSIBLE_MSG);
+			--cell_n;
 			break;
 		case '+':
-			++*cell;
+			++*(cell+cell_n);
 			break;
 		case '-':
-			--*cell;
+			--*(cell+cell_n);
 			break;
 		case '.':
-			putchar(*cell);
+			putchar(*(cell+cell_n));
 			break;
 		case ',':
-			fscanf(stdin, "%c", cell);
+			fscanf(stdin, "%c", (cell+cell_n));
 			break;
 		case '[':
 			l = ++pc;
@@ -113,12 +118,16 @@ void interpret_command(void) {
 			endl = get_end_of_loop();
 
 			while(true) {
-				if(!(*cell))
+				if(!(*(cell+cell_n)))
 					break;
 				for(pc = l; pc < endl; pc++) {
 					interpret_command();
 				}
 			}
+			break;
+
+		case '\n':
+			line_n++;
 			break;
 		default:
 			break;
@@ -126,7 +135,9 @@ void interpret_command(void) {
 }
 
 uint32_t get_end_of_loop(void) {
-	while(*(program+pc) != NULL) {
+	while(true) {
+		if(*(program+pc) == NULL)
+			die(DEFAULT_ERROR_MSG, line_n, MISMATCHED_BRACKETS_MSG);
 		if(*(program+pc) == ']')
 			break;
 		else if(*(program+pc) == '[') {
